@@ -22,7 +22,7 @@ describe('API Integration Tests', () => {
   
   beforeAll(async () => {
     // Connect to test database
-    const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/varlyq_test';
+    const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/green_candle_test';
     await mongoose.connect(mongoUri);
   });
   

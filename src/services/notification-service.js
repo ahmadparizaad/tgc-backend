@@ -45,7 +45,7 @@ export const sendToUser = async (fcmToken, notification, data = {}) => {
   try {
     const message = {
       token: fcmToken,
-      notification: {
+          notification: {
         title: notification.title,
         body: notification.body,
       },
@@ -56,7 +56,7 @@ export const sendToUser = async (fcmToken, notification, data = {}) => {
       android: {
         priority: 'high',
         notification: {
-          channelId: 'varlyq_calls',
+          channelId: 'green_candle_calls',
           priority: 'high',
           defaultSound: true,
           defaultVibrateTimings: true,
@@ -125,7 +125,7 @@ export const sendToMultipleUsers = async (fcmTokens, notification, data = {}) =>
       android: {
         priority: 'high',
         notification: {
-          channelId: 'varlyq_calls',
+          channelId: 'green_candle_calls',
           priority: 'high',
           defaultSound: true,
         },

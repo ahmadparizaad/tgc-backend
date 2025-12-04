@@ -7,7 +7,7 @@
 process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET = 'test-jwt-secret-key-for-testing';
 process.env.JWT_REFRESH_SECRET = 'test-jwt-refresh-secret-key-for-testing';
-process.env.MONGODB_URI = 'mongodb://localhost:27017/varlyq_test';
+process.env.MONGODB_URI = 'mongodb://localhost:27017/green_candle_test';
 
 // Increase timeout for async operations
 jest.setTimeout(30000);

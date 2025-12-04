@@ -99,7 +99,7 @@ export const sendTestNotification = catchAsync(async (req, res) => {
   
   const notification = {
     title: '🔔 Test Notification',
-    body: 'This is a test notification from VARLYQ Admin',
+    body: 'This is a test notification from The Green Candle Admin',
   };
   
   const result = await notificationService.sendToUser(fcmToken, notification, {

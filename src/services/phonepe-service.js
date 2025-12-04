@@ -29,7 +29,7 @@ const getPhonePeBaseUrl = () => {
 export const generateTransactionId = () => {
   const timestamp = Date.now();
   const random = crypto.randomBytes(8).toString('hex');
-  return `VARLYQ_${timestamp}_${random}`;
+  return `GREEN_CANDLE_${timestamp}_${random}`;
 };
 
 /**
