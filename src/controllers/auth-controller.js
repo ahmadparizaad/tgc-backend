@@ -25,14 +25,24 @@ export const verifyFirebaseToken = catchAsync(async (req, res) => {
     throw new AppError('Phone number not found in Firebase token', 400);
   }
   
-  // Find or create user
+  // Find user by firebaseUid first, then fallback to mobile (for admin-created users)
   let user = await User.findOne({ firebaseUid: uid });
   
   if (!user) {
-    user = await User.create({
-      firebaseUid: uid,
-      mobile: phoneNumber,
-    });
+    // Check if admin-created user exists with this mobile (no firebaseUid)
+    user = await User.findOne({ mobile: phoneNumber, firebaseUid: null });
+    
+    if (user) {
+      // Link admin-created user to Firebase account
+      user.firebaseUid = uid;
+      await user.save();
+    } else {
+      // Create new user
+      user = await User.create({
+        firebaseUid: uid,
+        mobile: phoneNumber,
+      });
+    }
   }
   
   // Check if user is active

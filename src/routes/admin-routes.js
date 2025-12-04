@@ -4,6 +4,7 @@ import { validate } from '../middlewares/validate-middleware.js';
 import { paginationSchema, userStatusSchema } from '../validators/auth-validator.js';
 import { createCallSchema, updateCallSchema, callListQuerySchema } from '../validators/call-validator.js';
 import { sendNotificationSchema, sendToUserSchema, testNotificationSchema } from '../validators/notification-validator.js';
+import { createUserSchema, updateUserSchema } from '../validators/user-validator.js';
 import { notificationLimiter } from '../middlewares/security-middleware.js';
 import adminAuthController from '../controllers/admin-auth-controller.js';
 import adminUserController from '../controllers/admin-user-controller.js';
@@ -25,6 +26,12 @@ router.get('/dashboard/recent-payments', dashboardController.getRecentPayments);
 router.get('/dashboard/subscription-metrics', dashboardController.getSubscriptionMetrics);
 
 // User management
+router.post(
+  '/users',
+  validate(createUserSchema),
+  adminUserController.createUser
+);
+
 router.get(
   '/users',
   validate(paginationSchema, 'query'),
@@ -32,6 +39,14 @@ router.get(
 );
 
 router.get('/users/:id', adminUserController.getUserById);
+
+router.put(
+  '/users/:id',
+  validate(updateUserSchema),
+  adminUserController.updateUser
+);
+
+router.delete('/users/:id', adminUserController.deleteUser);
 
 router.get(
   '/users/:id/payments',

@@ -15,7 +15,12 @@ export const getAllUsers = catchAsync(async (req, res) => {
   const filter = {};
   
   if (search) {
-    filter.mobile = { $regex: search, $options: 'i' };
+    // Search by mobile, fullName, or city
+    filter.$or = [
+      { mobile: { $regex: search, $options: 'i' } },
+      { fullName: { $regex: search, $options: 'i' } },
+      { city: { $regex: search, $options: 'i' } },
+    ];
   }
   
   if (subscriptionStatus === 'active') {
@@ -138,6 +143,7 @@ export const activateSubscription = catchAsync(async (req, res) => {
     startDate: now,
     endDate: new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000),
     isActive: true,
+    isUnlimited: false,
   };
   
   await user.save();
@@ -149,10 +155,162 @@ export const activateSubscription = catchAsync(async (req, res) => {
   });
 });
 
+/**
+ * Create new user (admin only)
+ * POST /api/admin/users
+ */
+export const createUser = catchAsync(async (req, res) => {
+  const { fullName, mobile, city, isActive = true, accessDays, isUnlimited = false } = req.body;
+  
+  // Check if user with this mobile already exists
+  const existingUser = await User.findOne({ mobile });
+  if (existingUser) {
+    throw new AppError('A user with this mobile number already exists', 409);
+  }
+  
+  // Build user data (don't set firebaseUid - leave it undefined for sparse index)
+  const userData = {
+    mobile,
+    isActive,
+  };
+  
+  // Only set optional fields if they have values
+  if (fullName) userData.fullName = fullName;
+  if (city) userData.city = city;
+  
+  // Set subscription if accessDays or isUnlimited provided
+  if (accessDays || isUnlimited) {
+    const now = new Date();
+    userData.subscription = {
+      plan: 'custom',
+      startDate: now,
+      endDate: isUnlimited ? null : new Date(now.getTime() + accessDays * 24 * 60 * 60 * 1000),
+      isActive: true,
+      isUnlimited,
+    };
+  }
+  
+  const user = await User.create(userData);
+  
+  res.status(201).json({
+    status: 'success',
+    message: 'User created successfully',
+    data: { user },
+  });
+});
+
+/**
+ * Update user (admin only)
+ * PUT /api/admin/users/:id
+ */
+export const updateUser = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const { fullName, mobile, city, isActive, accessDays, isUnlimited, extendSubscription = false } = req.body;
+  
+  const user = await User.findById(id);
+  if (!user) {
+    throw new AppError('User not found', 404);
+  }
+  
+  // Check mobile uniqueness if being updated
+  if (mobile && mobile !== user.mobile) {
+    const existingUser = await User.findOne({ mobile });
+    if (existingUser) {
+      throw new AppError('A user with this mobile number already exists', 409);
+    }
+    user.mobile = mobile;
+  }
+  
+  // Update fullName if provided
+  if (fullName !== undefined) {
+    user.fullName = fullName || null;
+  }
+  
+  // Update city if provided
+  if (city !== undefined) {
+    user.city = city || null;
+  }
+  
+  // Update isActive if provided
+  if (typeof isActive === 'boolean') {
+    user.isActive = isActive;
+  }
+  
+  // Update subscription if accessDays or isUnlimited provided
+  if (accessDays !== undefined || isUnlimited !== undefined) {
+    const now = new Date();
+    
+    if (isUnlimited) {
+      // Set unlimited subscription
+      user.subscription = {
+        plan: 'custom',
+        startDate: user.subscription.isActive ? user.subscription.startDate : now,
+        endDate: null,
+        isActive: true,
+        isUnlimited: true,
+      };
+    } else if (accessDays) {
+      let newEndDate;
+      
+      if (extendSubscription && user.subscription.isActive && user.subscription.endDate) {
+        // Extend from current end date
+        const currentEndDate = new Date(user.subscription.endDate);
+        const baseDate = currentEndDate > now ? currentEndDate : now;
+        newEndDate = new Date(baseDate.getTime() + accessDays * 24 * 60 * 60 * 1000);
+      } else {
+        // Replace from today
+        newEndDate = new Date(now.getTime() + accessDays * 24 * 60 * 60 * 1000);
+      }
+      
+      user.subscription = {
+        plan: 'custom',
+        startDate: extendSubscription && user.subscription.startDate ? user.subscription.startDate : now,
+        endDate: newEndDate,
+        isActive: true,
+        isUnlimited: false,
+      };
+    }
+  }
+  
+  await user.save();
+  
+  res.status(200).json({
+    status: 'success',
+    message: 'User updated successfully',
+    data: { user },
+  });
+});
+
+/**
+ * Delete user (admin only)
+ * DELETE /api/admin/users/:id
+ */
+export const deleteUser = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  
+  const user = await User.findById(id);
+  if (!user) {
+    throw new AppError('User not found', 404);
+  }
+  
+  await User.findByIdAndDelete(id);
+  
+  // Also delete related payments
+  await Payment.deleteMany({ user: id });
+  
+  res.status(200).json({
+    status: 'success',
+    message: 'User deleted successfully',
+  });
+});
+
 export default {
   getAllUsers,
   getUserById,
   updateUserStatus,
   getUserPayments,
   activateSubscription,
+  createUser,
+  updateUser,
+  deleteUser,
 };
