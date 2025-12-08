@@ -70,6 +70,13 @@ if (env.nodeEnv === 'development') {
   });
 }
 
+app.get('/', (req, res) => {
+  res.status(200).json({
+    status: 'success',
+    message: 'Welcome to The Green Candle API',
+  });
+})
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
