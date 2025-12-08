@@ -25,6 +25,9 @@ router.get('/dashboard/stats', dashboardController.getDashboardStats);
 router.get('/dashboard/recent-payments', dashboardController.getRecentPayments);
 router.get('/dashboard/subscription-metrics', dashboardController.getSubscriptionMetrics);
 
+// Payments listing
+router.get('/payments', validate(paginationSchema, 'query'), adminUserController.getAllPayments);
+
 // User management
 router.post(
   '/users',

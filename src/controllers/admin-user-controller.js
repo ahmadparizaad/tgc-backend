@@ -123,6 +123,53 @@ export const getUserPayments = catchAsync(async (req, res) => {
 });
 
 /**
+ * Get all payments (admin)
+ * GET /api/admin/payments
+ */
+export const getAllPayments = catchAsync(async (req, res) => {
+  const { page, limit, skip } = parsePagination(req.query);
+  const { search, status, fromDate, toDate } = req.query;
+
+  // Build filter
+  const filter = {};
+
+  if (search) {
+    // search by user mobile
+    // we can attempt to match mobile directly in the payment.user.mobile via populate match
+    // but Mongo can't filter on populated fields directly without lookup — use regex on user field by joining in aggregation
+    // For simplicity, search by user mobile requires us to lookup users
+    const users = await User.find({ mobile: { $regex: search, $options: 'i' } }).select('_id');
+    const userIds = users.map((u) => u._id);
+    filter.user = { $in: userIds };
+  }
+
+  if (status) {
+    filter.status = status;
+  }
+
+  if (fromDate || toDate) {
+    filter.createdAt = {};
+    if (fromDate) filter.createdAt.$gte = new Date(fromDate);
+    if (toDate) filter.createdAt.$lte = new Date(toDate);
+  }
+
+  const [payments, total] = await Promise.all([
+    Payment.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate('user', 'mobile')
+      .select('-__v'),
+    Payment.countDocuments(filter),
+  ]);
+
+  res.status(200).json({
+    status: 'success',
+    ...formatPaginationResponse(payments, total, page, limit),
+  });
+});
+
+/**
  * Activate subscription manually (for admin)
  * POST /api/admin/users/:id/activate-subscription
  */
@@ -308,6 +355,7 @@ export default {
   getAllUsers,
   getUserById,
   updateUserStatus,
+  getAllPayments,
   getUserPayments,
   activateSubscription,
   createUser,
