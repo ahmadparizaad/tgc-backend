@@ -8,11 +8,11 @@ import { catchAsync } from '../utils/helpers.js';
 import logger from '../utils/logger.js';
 import env from '../config/env.js';
 import crypto from 'crypto';
-import moment from 'moment';
+import moment from 'moment-timezone';
 
 /**
  * Register a new user and initiate subscription payment
- * POST /api/subscriptions/register
+ * POST /api/subscriptionsz
  */
 export const registerAndSubscribe = catchAsync(async (req, res, next) => {
   const { fullName, mobile, planId } = req.body;
@@ -284,7 +284,17 @@ async function activateAndQueuePlan(userId, transactionId, paymentId) {
     activationDate = activeOrPending.expiryDate > new Date() ? activeOrPending.expiryDate : new Date();
   }
   
-  expiryDate = moment(activationDate).add(plan.durationDays, 'days').toDate();
+  // Expiry Logic:
+  // 1. Convert activationDate to IST (Asia/Kolkata)
+  // 2. Add durationDays
+  // 3. Set to END OF DAY (23:59:59.999) in IST
+  // 4. Convert back to UTC Date object for storage
+  // This ensures subscriptions always expire at Midnight IST
+  expiryDate = moment(activationDate)
+    .tz('Asia/Kolkata')
+    .add(plan.durationDays, 'days')
+    .endOf('day')
+    .toDate();
 
   await SubscriptionQueue.create({
     user: userId,

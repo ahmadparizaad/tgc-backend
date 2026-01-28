@@ -2,14 +2,14 @@ import Joi from 'joi';
 
 // User login schema
 export const loginSchema = Joi.object({
-  displayId: Joi.string().required().messages({
-    'string.empty': 'Display ID is required',
-    'any.required': 'Display ID is required',
-  }),
+  displayId: Joi.string().optional(),
+  mobile: Joi.string().pattern(/^[0-9]{10}$/).optional(),
   password: Joi.string().required().messages({
     'string.empty': 'Password is required',
     'any.required': 'Password is required',
   }),
+}).or('displayId', 'mobile').messages({ // Require at least one
+  'object.missing': 'Either Display ID or Mobile Number is required'
 });
 
 // Refresh token schema

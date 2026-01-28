@@ -1,5 +1,6 @@
 import User from '../models/User.js';
 import Payment from '../models/Payment.js';
+import SubscriptionPlan from '../models/SubscriptionPlan.js';
 import AppError from '../utils/app-error.js';
 import { catchAsync, parsePagination, formatPaginationResponse } from '../utils/helpers.js';
 import moment from 'moment-timezone';
@@ -239,7 +240,15 @@ export const activateSubscription = catchAsync(async (req, res) => {
  * POST /api/admin/users
  */
 export const createUser = catchAsync(async (req, res) => {
-  const { fullName, mobile, city, isActive = true, accessDays, isUnlimited = false, planTier = 'Regular' } = req.body;
+  const { 
+    fullName, 
+    mobile, 
+    password, 
+    city, 
+    planId, 
+    accessDuration, 
+    planTier = 'Regular' 
+  } = req.body;
   
   // Check if user with this mobile already exists
   const existingUser = await User.findOne({ mobile });
@@ -247,30 +256,71 @@ export const createUser = catchAsync(async (req, res) => {
     throw new AppError('A user with this mobile number already exists', 409);
   }
   
-  // Generate random 8-character password
-  const password = Math.random().toString(36).slice(-8).toUpperCase();
+  // Use provided password or generate random 8-character password
+  const finalPassword = password || Math.random().toString(36).slice(-8).toUpperCase();
 
   // Build user data
   const userData = {
     mobile,
-    isActive,
-    password,
+    isActive: true,
+    password: finalPassword,
     fullName: fullName || mobile, // Fallback to mobile if name not provided
     city: city || ''
   };
   
-  // Set subscription if accessDays or isUnlimited provided
-  if (accessDays || isUnlimited) {
-    const now = new Date();
-    userData.subscription = {
+  // Set subscription Logic
+  let subscription = null;
+
+  if (planId) {
+    const plan = await SubscriptionPlan.findById(planId);
+    if (!plan) throw new AppError('Invalid Plan ID', 400);
+
+    const startDate = new Date();
+    // Use moment-timezone for consistency with other controllers (Midnight IST)
+    const endDate = moment(startDate)
+      .tz('Asia/Kolkata')
+      .add(plan.durationDays, 'days')
+      .endOf('day')
+      .toDate();
+
+    subscription = {
+      planTier: plan.tier,
+      startDate,
+      endDate,
+      isActive: true,
+      maxTargetsVisible: plan.maxTargetsVisible,
+      reminderHours: plan.reminderHours,
+      reminderSent: false
+    };
+  } else if (accessDuration) {
+    // Custom logic
+    const startDate = new Date();
+    let endDate = null;
+
+    if (accessDuration !== 'unlimited') {
+       const days = parseInt(accessDuration, 10);
+       if (!isNaN(days) && days > 0) {
+           endDate = moment(startDate)
+            .tz('Asia/Kolkata')
+            .add(days, 'days')
+            .endOf('day')
+            .toDate();
+       }
+    }
+    
+    subscription = {
       planTier,
-      startDate: now,
-      endDate: isUnlimited ? null : new Date(now.getTime() + accessDays * 24 * 60 * 60 * 1000),
+      startDate,
+      endDate, // null if unlimited
       isActive: true,
       maxTargetsVisible: planTier === 'Regular' ? 2 : 99,
       reminderHours: 24,
       reminderSent: false
     };
+  }
+
+  if (subscription) {
+    userData.subscription = subscription;
   }
   
   const user = await User.create(userData);
@@ -286,7 +336,7 @@ export const createUser = catchAsync(async (req, res) => {
         fullName: user.fullName,
         subscription: user.subscription
       },
-      temp_password: password
+      temp_password: finalPassword
     },
   });
 });
@@ -297,7 +347,16 @@ export const createUser = catchAsync(async (req, res) => {
  */
 export const updateUser = catchAsync(async (req, res) => {
   const { id } = req.params;
-  const { fullName, mobile, city, isActive, accessDays, isUnlimited, extendSubscription = false } = req.body;
+  const { 
+    fullName, 
+    mobile, 
+    city, 
+    isActive, 
+    accessDays, 
+    isUnlimited, 
+    planTier,
+    extendSubscription = false 
+  } = req.body;
   
   const user = await User.findById(id);
   if (!user) {
@@ -335,11 +394,12 @@ export const updateUser = catchAsync(async (req, res) => {
     if (isUnlimited) {
       // Set unlimited subscription
       user.subscription = {
-        plan: 'custom',
+        planTier: planTier || user.subscription.planTier || 'Regular',
         startDate: user.subscription.isActive ? user.subscription.startDate : now,
         endDate: null,
         isActive: true,
         isUnlimited: true,
+        maxTargetsVisible: (planTier || user.subscription.planTier) === 'Regular' ? 2 : 99,
       };
     } else if (accessDays) {
       let newEndDate;
@@ -355,12 +415,18 @@ export const updateUser = catchAsync(async (req, res) => {
       }
       
       user.subscription = {
-        plan: 'custom',
+        planTier: planTier || user.subscription.planTier || 'Regular',
         startDate: extendSubscription && user.subscription.startDate ? user.subscription.startDate : now,
         endDate: newEndDate,
         isActive: true,
         isUnlimited: false,
+        maxTargetsVisible: (planTier || user.subscription.planTier) === 'Regular' ? 2 : 99,
       };
+    } else if (planTier && user.subscription.isActive) {
+        // Just updating the tier for an active subscription
+        user.subscription.planTier = planTier;
+        user.subscription.maxTargetsVisible = planTier === 'Regular' ? 2 : 99;
+        user.markModified('subscription');
     }
   }
   
