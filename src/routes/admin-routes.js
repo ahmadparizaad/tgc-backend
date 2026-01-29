@@ -7,6 +7,7 @@ import * as planController from '../controllers/plan-controller.js';
 import { verifyAdminToken } from '../middlewares/auth-middleware.js';
 import { validate } from '../middlewares/validate-middleware.js';
 import { createAdminUserSchema } from '../validators/admin-validator.js';
+import { toggleTargetStatusSchema } from '../validators/call-validator.js';
 
 const router = Router();
 
@@ -37,11 +38,13 @@ router.post('/calls', callController.createCall);
 router.get('/calls/:id', callController.getCallById);
 router.put('/calls/:id', callController.updateCall);
 router.delete('/calls/:id', callController.deleteCall);
+router.patch('/calls/:id/targets/:targetId/status', validate(toggleTargetStatusSchema), callController.updateTargetStatus);
 
 // Plan Management
 router.get('/plans', planController.getAllPlans);
 router.post('/plans', planController.createPlan);
 router.patch('/plans/:id', planController.updatePlan);
+router.delete('/plans/:id', planController.deletePlan);
 
 // Create user manually (Admin Grant)
 router.post(

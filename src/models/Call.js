@@ -32,6 +32,10 @@ const callSchema = new mongoose.Schema({
     order: {
       type: Number,
       default: 1
+    },
+    isAcheived: {
+      type: Boolean,
+      default: false
     }
   }],
   stopLoss: {
@@ -51,7 +55,7 @@ const callSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['active', 'hit_target', 'hit_stoploss', 'expired'],
+    enum: ['active', 'partial_hit', 'all_hit', 'hit_stoploss', 'expired'],
     default: 'active',
     index: true,
   },

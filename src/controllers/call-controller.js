@@ -173,6 +173,47 @@ export const deleteCall = catchAsync(async (req, res) => {
 });
 
 /**
+ * Update target status (isAcheived) and auto-update call status
+ * PATCH /api/admin/calls/:id/targets/:targetId/status
+ */
+export const updateTargetStatus = catchAsync(async (req, res) => {
+  const { id, targetId } = req.params;
+  const { isAcheived } = req.body;
+
+  const call = await Call.findById(id);
+  if (!call) {
+    throw new AppError('Call not found', 404);
+  }
+
+  // Find and update target
+  const target = call.targetPrices.id(targetId);
+  if (!target) {
+    throw new AppError('Target not found', 404);
+  }
+
+  target.isAcheived = isAcheived;
+
+  // Auto-update call status
+  const totalTargets = call.targetPrices.length;
+  const achievedTargets = call.targetPrices.filter(t => t.isAcheived).length;
+
+  if (achievedTargets === 0) {
+    call.status = 'active';
+  } else if (achievedTargets < totalTargets) {
+    call.status = 'partial_hit';
+  } else if (achievedTargets === totalTargets) {
+    call.status = 'all_hit';
+  }
+
+  await call.save();
+
+  res.status(200).json({
+    status: 'success',
+    data: { call },
+  });
+});
+
+/**
  * Get today's calls (for users with active subscription)
  * GET /api/calls
  */
@@ -290,7 +331,10 @@ export const getCallStats = catchAsync(async (req, res) => {
         _id: null,
         totalCalls: { $sum: 1 },
         hitTarget: {
-          $sum: { $cond: [{ $eq: ['$status', 'hit_target'] }, 1, 0] },
+          $sum: { $cond: [{ $in: ['$status', ['partial_hit', 'all_hit']] }, 1, 0] },
+        },
+        allTargetsHit: {
+          $sum: { $cond: [{ $eq: ['$status', 'all_hit'] }, 1, 0] },
         },
         hitStoploss: {
           $sum: { $cond: [{ $eq: ['$status', 'hit_stoploss'] }, 1, 0] },
@@ -308,12 +352,13 @@ export const getCallStats = catchAsync(async (req, res) => {
   const result = stats[0] || {
     totalCalls: 0,
     hitTarget: 0,
+    allTargetsHit: 0,
     hitStoploss: 0,
     activeCalls: 0,
     expiredCalls: 0,
   };
 
-  // Calculate accuracy (hit_target / (hit_target + hit_stoploss))
+  // Calculate accuracy ((partial or all hit) / (hit_target + hit_stoploss))
   const completedCalls = result.hitTarget + result.hitStoploss;
   const accuracy = completedCalls > 0 
     ? ((result.hitTarget / completedCalls) * 100).toFixed(2) 
@@ -339,7 +384,7 @@ export const getStatsByCommodity = catchAsync(async (req, res) => {
         _id: '$commodity',
         totalCalls: { $sum: 1 },
         hitTarget: {
-          $sum: { $cond: [{ $eq: ['$status', 'hit_target'] }, 1, 0] },
+          $sum: { $cond: [{ $in: ['$status', ['partial_hit', 'all_hit']] }, 1, 0] },
         },
         hitStoploss: {
           $sum: { $cond: [{ $eq: ['$status', 'hit_stoploss'] }, 1, 0] },
@@ -382,6 +427,7 @@ export default {
   getCallById,
   updateCall,
   deleteCall,
+  updateTargetStatus,
   getTodayCalls,
   getCallHistory,
   getCallStats,

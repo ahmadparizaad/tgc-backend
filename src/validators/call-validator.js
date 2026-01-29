@@ -35,7 +35,8 @@ export const createCallSchema = Joi.object({
     .items(Joi.object({
       price: Joi.number().positive().required(),
       label: Joi.string().required(),
-      order: Joi.number().integer().min(1).default(1)
+      order: Joi.number().integer().min(1).default(1),
+      isAcheived: Joi.boolean().default(false)
     }))
     .min(1)
     .max(6)
@@ -66,7 +67,7 @@ export const createCallSchema = Joi.object({
       'any.required': 'Date is required',
     }),
   status: Joi.string()
-    .valid('active', 'hit_target', 'hit_stoploss', 'expired')
+    .valid('active', 'partial_hit', 'all_hit', 'hit_stoploss', 'expired')
     .default('active'),
 });
 
@@ -84,9 +85,11 @@ export const updateCallSchema = Joi.object({
     .positive(),
   targetPrices: Joi.array()
     .items(Joi.object({
-      price: Joi.number().positive().required(),
-      label: Joi.string().required(),
-      order: Joi.number().integer().min(1)
+      _id: Joi.string(), // For updates
+      price: Joi.number().positive(),
+      label: Joi.string(),
+      order: Joi.number().integer().min(1),
+      isAcheived: Joi.boolean()
     }))
     .min(1)
     .max(6),
@@ -96,9 +99,14 @@ export const updateCallSchema = Joi.object({
     .max(2000),
   date: Joi.date(),
   status: Joi.string()
-    .valid('active', 'hit_target', 'hit_stoploss', 'expired'),
+    .valid('active', 'partial_hit', 'all_hit', 'hit_stoploss', 'expired'),
 }).min(1).messages({
   'object.min': 'At least one field must be provided for update',
+});
+
+// Target status toggle schema
+export const toggleTargetStatusSchema = Joi.object({
+  isAcheived: Joi.boolean().required()
 });
 
 // Call list query schema
@@ -106,7 +114,7 @@ export const callListQuerySchema = Joi.object({
   page: Joi.number().integer().min(1).default(1),
   limit: Joi.number().integer().min(1).max(100).default(10),
   commodity: Joi.string().valid('Gold', 'Silver', 'Copper', 'Crude', 'CMX Gold', 'CMX Silver', 'Custom'),
-  status: Joi.string().valid('active', 'hit_target', 'hit_stoploss', 'expired'),
+  status: Joi.string().valid('active', 'partial_hit', 'all_hit', 'hit_stoploss', 'expired'),
   type: Joi.string().valid('buy', 'sell'),
   startDate: Joi.date(),
   endDate: Joi.date(),
