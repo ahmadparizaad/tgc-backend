@@ -51,6 +51,10 @@ const userSchema = new mongoose.Schema({
       type: Boolean,
       default: false,
     },
+    isUnlimited: {
+      type: Boolean,
+      default: false,
+    },
     maxTargetsVisible: {
       type: Number,
       default: 2,
@@ -99,12 +103,9 @@ userSchema.virtual('hasActiveSubscription').get(function() {
   if (!this.subscription.isActive) {
     return false;
   }
-  // Unlimited subscriptions are always active
-  if (this.subscription.isUnlimited) {
+  // Unlimited subscriptions (null endDate) or explicit isUnlimited are always active
+  if (!this.subscription.endDate || this.subscription.isUnlimited) {
     return true;
-  }
-  if (!this.subscription.endDate) {
-    return false;
   }
   return new Date() < this.subscription.endDate;
 });

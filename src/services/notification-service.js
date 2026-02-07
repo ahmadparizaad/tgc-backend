@@ -183,7 +183,10 @@ export const sendToActiveSubscribers = async (notification, data = {}) => {
     const activeUsers = await User.find({
       isActive: true,
       'subscription.isActive': true,
-      'subscription.endDate': { $gt: now },
+      $or: [
+        { 'subscription.endDate': { $gt: now } },
+        { 'subscription.endDate': null }
+      ],
       fcmToken: { $exists: true, $ne: null },
     }).select('fcmToken');
     

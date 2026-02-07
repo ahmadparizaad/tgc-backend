@@ -1,5 +1,4 @@
 import Call from '../models/Call.js';
-import SubscriptionPlan from '../models/SubscriptionPlan.js';
 import AppError from '../utils/app-error.js';
 import { catchAsync, parsePagination, formatPaginationResponse } from '../utils/helpers.js';
 import moment from 'moment-timezone';
@@ -32,7 +31,7 @@ export const createCall = catchAsync(async (req, res) => {
     targetPrices,
     stopLoss,
     analysis,
-    date: new Date(date),
+    date: moment.tz(date, 'Asia/Kolkata').startOf('day').toDate(),
     status: status || 'active',
     tradeType: tradeType || 'intraday',
     createdBy: adminId,
@@ -74,10 +73,10 @@ export const getAllCalls = catchAsync(async (req, res) => {
   if (startDate || endDate) {
     filter.date = {};
     if (startDate) {
-      filter.date.$gte = moment(startDate).startOf('day').toDate();
+      filter.date.$gte = moment.tz(startDate, 'Asia/Kolkata').startOf('day').toDate();
     }
     if (endDate) {
-      filter.date.$lte = moment(endDate).endOf('day').toDate();
+      filter.date.$lte = moment.tz(endDate, 'Asia/Kolkata').endOf('day').toDate();
     }
   }
 
@@ -131,9 +130,9 @@ export const updateCall = catchAsync(async (req, res) => {
   const { id } = req.params;
   const updateData = req.body;
 
-  // Convert date if provided
+  // Convert date to IST midnight if provided
   if (updateData.date) {
-    updateData.date = new Date(updateData.date);
+    updateData.date = moment.tz(updateData.date, 'Asia/Kolkata').startOf('day').toDate();
   }
 
   const call = await Call.findByIdAndUpdate(id, updateData, {
@@ -242,13 +241,7 @@ export const getTodayCalls = catchAsync(async (req, res) => {
     .select('-__v -createdBy');
 
   // Filter targetPrices based on subscription tier
-  const user = req.user;
-  const activePlan = await SubscriptionPlan.findOne({ 
-    type: user.subscription.type,
-    duration: user.subscription.plan 
-  });
-  
-  const maxTargets = activePlan ? activePlan.maxTargetsVisible : 2;
+  const maxTargets = req.user.subscription?.maxTargetsVisible || (req.user.subscription?.planTier === 'Regular' ? 2 : 6);
 
   const filteredCalls = calls.map(call => {
     const callObj = call.toObject();
@@ -285,8 +278,8 @@ export const getCallHistory = catchAsync(async (req, res) => {
   const defaultStartDate = moment.tz('Asia/Kolkata').subtract(7, 'days').startOf('day');
   
   filter.date = {
-    $gte: startDate ? new Date(startDate) : defaultStartDate.toDate(),
-    $lte: endDate ? new Date(endDate) : new Date(),
+    $gte: startDate ? moment.tz(startDate, 'Asia/Kolkata').startOf('day').toDate() : defaultStartDate.toDate(),
+    $lte: endDate ? moment.tz(endDate, 'Asia/Kolkata').endOf('day').toDate() : moment.tz('Asia/Kolkata').endOf('day').toDate(),
   };
 
   const [calls, total] = await Promise.all([
@@ -299,12 +292,7 @@ export const getCallHistory = catchAsync(async (req, res) => {
   ]);
 
   // Filter targets for history too? Usually yes.
-  const user = req.user;
-  const activePlan = await SubscriptionPlan.findOne({ 
-    type: user.subscription.type,
-    duration: user.subscription.plan 
-  });
-  const maxTargets = activePlan ? activePlan.maxTargetsVisible : 2;
+  const maxTargets = req.user.subscription?.maxTargetsVisible || (req.user.subscription?.planTier === 'Regular' ? 2 : 6);
 
   const filteredCalls = calls.map(call => {
     const callObj = call.toObject();

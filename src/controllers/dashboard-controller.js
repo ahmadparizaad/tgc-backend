@@ -35,7 +35,10 @@ export const getDashboardStats = catchAsync(async (req, res) => {
     // Active subscriptions
     User.countDocuments({
       'subscription.isActive': true,
-      'subscription.endDate': { $gt: new Date() },
+      $or: [
+        { 'subscription.endDate': { $gt: new Date() } },
+        { 'subscription.endDate': null }
+      ]
     }),
     
     // Today's calls count
@@ -66,7 +69,7 @@ export const getDashboardStats = catchAsync(async (req, res) => {
           _id: null,
           totalCalls: { $sum: 1 },
           hitTarget: {
-            $sum: { $cond: [{ $eq: ['$status', 'hit_target'] }, 1, 0] },
+            $sum: { $cond: [{ $in: ['$status', ['partial_hit', 'all_hit']] }, 1, 0] },
           },
           hitStoploss: {
             $sum: { $cond: [{ $eq: ['$status', 'hit_stoploss'] }, 1, 0] },
@@ -129,12 +132,15 @@ export const getSubscriptionMetrics = catchAsync(async (req, res) => {
       {
         $match: {
           'subscription.isActive': true,
-          'subscription.endDate': { $gt: now },
+          $or: [
+            { 'subscription.endDate': { $gt: now } },
+            { 'subscription.endDate': null }
+          ]
         },
       },
       {
         $group: {
-          _id: '$subscription.plan',
+          _id: '$subscription.planTier',
           count: { $sum: 1 },
         },
       },
@@ -160,8 +166,9 @@ export const getSubscriptionMetrics = catchAsync(async (req, res) => {
 
   // Format plan counts
   const plans = {
-    daily: 0,
-    weekly: 0,
+    Regular: 0,
+    Premium: 0,
+    International: 0,
   };
   
   planCounts.forEach(({ _id, count }) => {
@@ -174,7 +181,7 @@ export const getSubscriptionMetrics = catchAsync(async (req, res) => {
     status: 'success',
     data: {
       activeByPlan: plans,
-      totalActive: plans.daily + plans.weekly,
+      totalActive: Object.values(plans).reduce((a, b) => a + b, 0),
       expiringToday,
       expiredRecently,
     },

@@ -27,11 +27,17 @@ export const getAllUsers = catchAsync(async (req, res) => {
   
   if (subscriptionStatus === 'active') {
     filter['subscription.isActive'] = true;
-    filter['subscription.endDate'] = { $gt: new Date() };
+    filter.$or = [
+      { 'subscription.endDate': { $gt: new Date() } },
+      { 'subscription.endDate': null },
+    ];
   } else if (subscriptionStatus === 'inactive') {
     filter.$or = [
       { 'subscription.isActive': false },
-      { 'subscription.endDate': { $lte: new Date() } },
+      { 
+        'subscription.isActive': true, 
+        'subscription.endDate': { $ne: null, $lte: new Date() } 
+      },
     ];
   }
   
@@ -313,7 +319,8 @@ export const createUser = catchAsync(async (req, res) => {
       startDate,
       endDate, // null if unlimited
       isActive: true,
-      maxTargetsVisible: planTier === 'Regular' ? 2 : 99,
+      isUnlimited: accessDuration === 'unlimited',
+      maxTargetsVisible: planTier === 'Regular' ? 2 : 6,
       reminderHours: 24,
       reminderSent: false
     };
@@ -399,7 +406,7 @@ export const updateUser = catchAsync(async (req, res) => {
         endDate: null,
         isActive: true,
         isUnlimited: true,
-        maxTargetsVisible: (planTier || user.subscription.planTier) === 'Regular' ? 2 : 99,
+        maxTargetsVisible: (planTier || user.subscription.planTier) === 'Regular' ? 2 : 6,
       };
     } else if (accessDays) {
       let newEndDate;
@@ -420,12 +427,12 @@ export const updateUser = catchAsync(async (req, res) => {
         endDate: newEndDate,
         isActive: true,
         isUnlimited: false,
-        maxTargetsVisible: (planTier || user.subscription.planTier) === 'Regular' ? 2 : 99,
+        maxTargetsVisible: (planTier || user.subscription.planTier) === 'Regular' ? 2 : 6,
       };
     } else if (planTier && user.subscription.isActive) {
         // Just updating the tier for an active subscription
         user.subscription.planTier = planTier;
-        user.subscription.maxTargetsVisible = planTier === 'Regular' ? 2 : 99;
+        user.subscription.maxTargetsVisible = planTier === 'Regular' ? 2 : 6;
         user.markModified('subscription');
     }
   }

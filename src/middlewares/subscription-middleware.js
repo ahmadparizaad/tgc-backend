@@ -45,12 +45,12 @@ export const requireActiveSubscription = async (req, res, next) => {
     
     // Attach subscription info to request for downstream use
     req.subscription = {
-      plan: subscription.plan,
+      plan: subscription.planTier || subscription.plan,
       startDate: subscription.startDate,
       endDate: subscription.endDate,
-      daysRemaining: Math.ceil(
-        (new Date(subscription.endDate) - new Date()) / (1000 * 60 * 60 * 24)
-      ),
+      daysRemaining: subscription.endDate 
+        ? Math.ceil((new Date(subscription.endDate) - new Date()) / (1000 * 60 * 60 * 24))
+        : 9999, // Unlimited access
     };
     
     next();
@@ -101,12 +101,12 @@ export const checkSubscriptionStatus = async (req, res, next) => {
     
     req.subscription = {
       active: true,
-      plan: subscription.plan,
+      plan: subscription.planTier || subscription.plan,
       startDate: subscription.startDate,
       endDate: subscription.endDate,
-      daysRemaining: Math.ceil(
-        (new Date(subscription.endDate) - new Date()) / (1000 * 60 * 60 * 24)
-      ),
+      daysRemaining: subscription.endDate 
+        ? Math.ceil((new Date(subscription.endDate) - new Date()) / (1000 * 60 * 60 * 24))
+        : 9999, // Unlimited access
     };
     
     next();
@@ -139,8 +139,7 @@ export const softSubscriptionCheck = async (req, res, next) => {
     
     const subscription = user.subscription;
     const hasActive = subscription?.isActive && 
-      subscription?.endDate && 
-      new Date(subscription.endDate) > new Date();
+      (!subscription?.endDate || new Date(subscription.endDate) > new Date());
     
     req.hasActiveSubscription = hasActive;
     

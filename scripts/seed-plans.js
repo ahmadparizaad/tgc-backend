@@ -40,7 +40,7 @@ const seedPlans = async () => {
                 durationLabel: '1 Day',
                 price: 199,
                 currency: 'INR',
-                maxTargetsVisible: 99,
+                maxTargetsVisible: 6,
                 reminderHours: 2
             },
             {
@@ -50,7 +50,7 @@ const seedPlans = async () => {
                 durationLabel: '7 Days',
                 price: 999,
                 currency: 'INR',
-                maxTargetsVisible: 99,
+                maxTargetsVisible: 6,
                 reminderHours: 24
             },
             // International Plans
@@ -61,7 +61,7 @@ const seedPlans = async () => {
                 durationLabel: '7 Days',
                 price: 1999,
                 currency: 'INR',
-                maxTargetsVisible: 99,
+                maxTargetsVisible: 6,
                 reminderHours: 24
             }
         ];

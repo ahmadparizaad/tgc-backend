@@ -136,7 +136,10 @@ export const getNotificationStats = catchAsync(async (req, res) => {
   const activeSubscribersWithToken = await User.countDocuments({
     isActive: true,
     'subscription.isActive': true,
-    'subscription.endDate': { $gt: now },
+    $or: [
+      { 'subscription.endDate': { $gt: now } },
+      { 'subscription.endDate': null }
+    ],
     fcmToken: { $exists: true, $ne: null },
   });
   
