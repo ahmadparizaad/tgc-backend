@@ -25,14 +25,23 @@ app.use(helmet(helmetConfig));
 const corsOptions = {
   origin: (origin, callback) => {
     // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin) return callback(null, true);
+
     const allowedOrigins = [
       env.adminCorsOrigin,
       env.userAppOrigin,
       'http://localhost:3000',
       'http://localhost:5000',
+      'http://127.0.0.1:3000',
     ];
     
-    if (!origin || allowedOrigins.includes(origin)) {
+    // In development, allow any localhost or 192.168.x.x origin
+    const isDevelopment = env.nodeEnv === 'development';
+    const isLocalNetwork = origin.startsWith('http://192.168.') || 
+                          origin.startsWith('http://10.') || 
+                          origin.startsWith('http://172.');
+
+    if (allowedOrigins.includes(origin) || (isDevelopment && isLocalNetwork)) {
       callback(null, true);
     } else {
       logger.warn(`Blocked CORS request from origin: ${origin}`);
